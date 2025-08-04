@@ -4,7 +4,7 @@ import qrcode as qr
 import logging
 import argparse
 import pathlib
-from openpyxl import load_workbook
+import traceback
 
 WHITELIST_DIR = pathlib.Path("data/whitelist.xlsx")
 QR_DIR = pathlib.Path("data/output_qr")
@@ -13,9 +13,10 @@ def generate_hash_key(aa : str, name : str) -> str:
     input_str = f"{aa.strip()}-{name.lower().strip()}"
     return sha256(input_str.encode('utf-8')).hexdigest()
 
-def generate_qr_image(hash: str, output_path: pathlib.Path):    
-        qr_image = qr.make(hash)
-        qr_image.save(output_path)
+def generate_qr_image(hash: str, path: pathlib.Path):    
+        qr_image = qr.make(hash, image_factory = None)
+        path.parent.mkdir(parents = True, exist_ok= True)
+        qr_image.save(str(path))
 
 def generate_whitelist(entries: list[dict]):
     WHITELIST_DIR.parent.mkdir(exist_ok=True, parents=True)
@@ -24,14 +25,13 @@ def generate_whitelist(entries: list[dict]):
     df = pd.DataFrame(entries)
          
     if WHITELIST_DIR.exists():
-        book = load_workbook(WHITELIST_DIR)
-        writer = pd.ExcelWriter(WHITELIST_DIR, engine='openpyxl', mode='a', if_sheet_exists='overlay')
-        writer.book = book
-        writer.sheets = {ws.title: ws for ws in book.worksheets}
-        startrow = writer.sheets['Sheet1'].max_row
-        df.to_excel(writer, sheet_name='Sheet1', index=False, header=False, startrow=startrow)
-        writer.close()
+        existing_df = pd.read_excel(WHITELIST_DIR)
+
+        updated_df = pd.concat([existing_df, df], ignore_index=True)
+        updated_df = updated_df.drop_duplicates(subset=["qr_data"])
+        updated_df.to_excel(WHITELIST_DIR, index=False)
     else:
+        df = df.drop_duplicates()
         df.to_excel(WHITELIST_DIR, index=False)
     logging.info(f"Appended {len(entries)} entries to {WHITELIST_DIR}")    
 
@@ -41,24 +41,24 @@ def main():
     df = pd.read_excel(args.source)
     whitelist_entries = []
     for idx, row in df.iterrows():
-        
-        status = str(row.get("ΚΑΤΑΣΤΑΣΗ ΔΕΛΤΙΟΥ", "")).strip().upper()
-        
+        status = str(row.iloc[9]).strip() # column 9 = ΚΑΤΑΣΤΑΣΗ ΔΕΛΤΙΟΥ
         if status != "ΙΣΧΥΕΙ":
             logging.info(f"Skipping row {idx} — ΚΑΤΑΣΤΑΣΗ ΔΕΛΤΙΟΥ: '{status}'")
             continue
         
-        num = str(row.get("Α/Α ΔΕΛΤΙΟΥ", "")).strip()
-        name = str(row.get("EΠΩΝΥΜΟ", "")).strip()
+        num = str(row.iloc[0]).strip()   # column 0 = Α/Α ΔΕΛΤΙΟΥ 
+        name = str(row.iloc[3]).strip()  # column 3 = ΕΠΩΝΥΜΟ   
         
         if not num or not name:
             logging.warning(f"Skipping row {idx} — missing Α/Α ΔΕΛΤΙΟΥ or ΕΠΩΝΥΜΟ")
             continue
-        hash = generate_hash_key(num, name)
-        qr_filename = f"{num}-{name}.png"
-        qr_path = QR_DIR / qr_filename
-        generate_qr_image(hash, qr_path)
-
+        try:
+            hash = generate_hash_key(num, name)
+            qr_filename = f"{num}-{name}.png"
+            qr_path = QR_DIR / qr_filename
+            generate_qr_image(hash, qr_path)
+        except Exception: 
+            traceback.print_exc()
         entry = {
             "Α/Α ΔΕΛΤΙΟΥ": num,
             "ΕΠΩΝΥΜΟ": name,
