@@ -1,1 +1,0 @@
-WHITELIST_PATH = r'deltia.xlsx'

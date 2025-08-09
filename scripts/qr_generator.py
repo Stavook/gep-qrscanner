@@ -1,22 +1,24 @@
-from hashlib import sha256
 import pandas as pd
-import qrcode as qr
 import logging
 import argparse
 import pathlib
 import traceback
+from hashlib import sha256
+import qrcode as qr
+from pathlib import Path
 
 WHITELIST_DIR = pathlib.Path("data/whitelist.xlsx")
 QR_DIR = pathlib.Path("data/output_qr")
+
+def generate_qr_image(hash: str, path: Path):    
+        qr_image = qr.make(hash, image_factory = None)
+        path.parent.mkdir(parents = True, exist_ok= True)
+        qr_image.save(str(path))
 
 def generate_hash_key(aa : str, name : str) -> str:
     input_str = f"{aa.strip()}-{name.lower().strip()}"
     return sha256(input_str.encode('utf-8')).hexdigest()
 
-def generate_qr_image(hash: str, path: pathlib.Path):    
-        qr_image = qr.make(hash, image_factory = None)
-        path.parent.mkdir(parents = True, exist_ok= True)
-        qr_image.save(str(path))
 
 def generate_whitelist(entries: list[dict]):
     WHITELIST_DIR.parent.mkdir(exist_ok=True, parents=True)
