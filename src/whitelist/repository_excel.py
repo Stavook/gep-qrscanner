@@ -13,7 +13,6 @@ class ExcelRepository(Repository):
         self.storage_path = storage_path
         self.storage_path.parent.mkdir(exist_ok=True, parents=True)
 
-    
     def generate(self, source: Union[Path, List[Dict[Any, Any]]]) -> List[Dict[str, str]]:
         
         if isinstance(source, Path):
