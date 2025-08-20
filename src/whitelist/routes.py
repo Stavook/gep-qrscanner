@@ -1,8 +1,8 @@
 from fastapi import APIRouter, UploadFile, File, HTTPException
 from pathlib import Path
-from typing import Dict, Any
+from typing import Dict, Any, List
 from .service import WhitelistService
-from .models import QrValidationRequest
+from .models import QrValidationRequest, QrValidationResponse, WhitelistEntry
 from .repository_excel import ExcelRepository 
 from .config import WHITELIST_PATH
 
@@ -11,19 +11,19 @@ router = APIRouter()
 excel_repository = ExcelRepository(WHITELIST_PATH)
 whitelist_service = WhitelistService(excel_repository)
 
-@router.post("/validate_qr/")
-def validate_qr(payload: QrValidationRequest) -> Dict[str, Any]:
+@router.post("/validate_qr/", response_model = QrValidationResponse)
+def validate_qr(payload: QrValidationRequest) -> QrValidationResponse:
     try:
         valid = whitelist_service.is_valid(payload.qr_data)
         entry = None
     
         if valid:
             entry = whitelist_service.get_entry_by_qr(payload.qr_data)
-        return {
-            "qr_data":payload.qr_data,
-            "valid": valid,
-            "entry": entry
-        }
+        return QrValidationResponse(
+            qr_data = payload.qr_data,
+            valid = valid,
+            entry = entry
+        )
 
     except Exception as e:
         raise HTTPException(status_code = 500, detail = f"Validation error: {str(e)}")
@@ -118,14 +118,9 @@ def get_whitelist_stats() -> Dict[str, Any]:
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Stats error: {str(e)}")
     
-@router.get("/entries/")
-def get_all_entries() -> Dict[str, Any]:
+@router.get("/entries/", response_model = List[WhitelistEntry])
+def get_all_entries() -> List[WhitelistEntry]:
     try:
-        entries = whitelist_service.get_entries()
-        return {
-            "message": "All entries retrieved successfully",
-            "count": len(entries),
-            "entries": entries
-        }
+        return whitelist_service.get_entries()
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Retrieval error: {str(e)}")

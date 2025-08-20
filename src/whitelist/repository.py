@@ -1,17 +1,18 @@
 from abc import ABC, abstractmethod
 from typing import List, Dict, Any, Union
 from pathlib import Path
+from .models import WhitelistEntry
 
 class Repository(ABC):
 
     @abstractmethod
-    def load(self) -> List[Dict[str, str]]:
+    def load(self) -> List[WhitelistEntry]:
         pass
 
     @abstractmethod
-    def save(self, entries: List[Dict[str, str]]) -> None:
+    def save(self, entries: List[WhitelistEntry]) -> None:
         pass
 
     @abstractmethod
-    def generate(self, source: Union[Path, List[Dict[Any, Any]]]) -> List[Dict[str, str]]:
+    def generate(self, source: Union[Path, List[WhitelistEntry]]) -> List[WhitelistEntry]:
         pass
